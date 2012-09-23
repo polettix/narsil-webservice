@@ -1,0 +1,13 @@
+
+<h1>What's in aside</h1>
+<ul>
+   <li>aside item 1</li>
+   <li>aside item 2</li>
+</ul>
+
+<h1>Something more in aside</h1>
+<ul>
+   <li>aside item 3</li>
+   <li>aside item 4</li>
+</ul>
+<p>Find me in views/layouts/main_/ aside.tt</p>
