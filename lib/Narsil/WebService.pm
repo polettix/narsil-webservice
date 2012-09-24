@@ -371,6 +371,8 @@ sub _serializable_match {
         if $all || $is_requested{participants};
       $match{invited} = [_userlist($match->invited())]
         if $all || $is_requested{invited};
+      $match{movers} = [_userlist($match->movers())]
+        if $all || $is_requested{movers};
       $match{winners} = [_userlist($match->winners())]
         if $all || $is_requested{winners};
       $match{joins} = [_uri_id(join => $match->join_ids())]
