@@ -28,7 +28,7 @@ auto_reload: 0
 
 narsil:
    local_INC:
-      - '/home/poletti/sviluppo/perl/narsil/narsil-core/lib'
+      - '/home/poletti/sviluppo/perl/narsil/core/lib'
    model: 'Narsil::Model::Redis'
    connector:
       parameters:
