@@ -371,6 +371,8 @@ sub _serializable_match {
         if $all || $is_requested{participants};
       $match{invited} = [_userlist($match->invited())]
         if $all || $is_requested{invited};
+      $match{movers} = [_userlist($match->movers())]
+        if $all || $is_requested{movers};
       $match{winners} = [_userlist($match->winners())]
         if $all || $is_requested{winners};
       $match{joins} = [_uri_id(join => $match->join_ids())]
@@ -849,7 +851,7 @@ get '/user/matches/:id' => sub {
    my $model = model();
    my @matches = map {
       my $match = $model->get_match($_);
-      my $retval = _serializable_match($match, 'participants' );
+      my $retval = _serializable_match($match, 'participants', 'movers' );
       $retval->{game} = {
          uri => $retval->{game},
          name => $match->game()->name(),
