@@ -864,6 +864,12 @@ get '/user/matches/:id' => sub {
    };
 };
 
+get '/game/:id' => sub {
+   my $id = param('id');
+   my $game = model()->get(game => $id);
+   return $game->plain();
+};
+
 get '/games' => sub {
    return [
       map { scalar $_->plain() } model()->games()
