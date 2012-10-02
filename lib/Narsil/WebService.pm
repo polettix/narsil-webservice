@@ -3,6 +3,7 @@ use 5.012;
 use English qw< -no_match_vars >;
 use Dancer ':syntax';
 use Dancer::Plugin::FlashNote qw< flash >;
+use JSON qw< encode_json decode_json >;
 use Try::Tiny;
 
 get '/' => sub {
@@ -394,7 +395,9 @@ sub _serializable_match {
       creator => $match->creator(),
    );
 
-   $match{game} = $is_requested{':game'} ? _serializable_game($match->game()) : $match->gameid();
+   $match{game} = $is_requested{':game'} ?
+      _serializable_game($match->game()) :
+      _uri_id(game => $match->gameid());
 
    $match{configuration} = $match->configuration()
      if $all || $is_requested{configuration};
@@ -607,7 +610,7 @@ sub _serializable_game {
    my ($game)          = @_;
    return { 
       uri   => _uri_id(game => $game),
-      %{_serializable_game($game)},
+      %{$game->plain()},
    };
 } ## end sub _serializable_move
 
@@ -684,107 +687,15 @@ Returns the main match data according to what described in L</Match>.
 =cut
 
 get '/match/:id' => sub {
-   return _serializable_match(_rh_get_match(param('id')));
-};
-
-=head2 GetMatchConfiguration
-
-   Endpoint*: <specified in match>
-   Method:   GET
-
-Get the configuration set for the match. See L</Match> for details.
-
-See L</Match> for details on getting the endpoint.
-
-=cut
-
-get '/match/configuration/:id' => sub {
-   return _serializable_match(_rh_get_match(param('id')), 'configuration');
-};
-
-=head2 GetMatchStatus
-
-   Endpoint*: /match/status/:id
-   Method:    GET
-
-Get the status for the match, whatever this means. See L</Match> for
-further details.
-
-See L</Match> for details on getting the endpoint.
-
-=cut
-
-get '/match/status/:id' => sub {
-   return _serializable_match(_rh_get_match(param('id')), 'status');
-};
-
-=head2 GetMatchParticipants
-
-   Endpoint*: /match/participants/:id
-   Method:    GET
-
-Get the list of participants currently participating in the match.
-
-See L</Match> for details on getting the endpoint.
-
-=cut
-
-get '/match/participants/:id' => sub {
-   return _serializable_match(_rh_get_match(param('id')), 'participants');
-};
-
-=head2 GetMatchInvited
-
-   Endpoint*: /match/invited/:id
-   Method:    GET
-
-Get the list of participants currently invited to the match. This list
-is used to pre-filter participation requests, but the final participation
-decision is taken only when trying to join a match.
-
-See L</Match> for details on getting the endpoint.
-
-=cut
-
-get '/match/invited/:id' => sub {
-   return _serializable_match(_rh_get_match(param('id')), 'invited');
-};
-
-
-=head2 GetMatchWinners
-
-   Endpoint*: /match/winners/:id
-   Method:    GET
-
-Get the list of winners of the match.
-
-See L</Match> for details on getting the endpoint.
-
-=cut
-
-get '/match/winners/:id' => sub {
-   return _serializable_match(_rh_get_match(param('id')), 'winners');
-};
-
-=head2 GetJoins
-
-   Endpoint*: /match/joins/:id
-   Method:    GET
-
-Get the list of joins for the match, provided as a list (array) of
-URI endpoints.
-
-See L</Match> for details on getting the endpoint.
-
-=cut
-
-get '/match/joins/:id' => sub {
-   return _serializable_match(_rh_get_match(param('id')), 'joins');
+   my @features;
+   @features = @{decode_json(param('features'))}
+      if defined(param('features'));
+   return _serializable_match(_rh_get_match(param('id')), @features);
 };
 
 =head2 MatchJoin
 
-   Endpoint*: /match/joins/:id
+   Endpoint*: /match/joins/:matchid
    Method:    POST
 
 Request to join the match, i.e. to participate to the match.
@@ -808,7 +719,7 @@ post '/match/joins/:id' => sub {
 
 =head2 GetJoin
 
-   Endpoint*: /join/:id
+   Endpoint*: /join/:joinid
    Method:    GET
 
 The endpoint is available in the result to a L</MatchJoin> or can be
@@ -822,22 +733,6 @@ get '/join/:joinid' => sub {
    my $join =
      _rh_errorchecked(sub { model()->get_join(@_) }, param('joinid'));
    return _serializable_join($join);
-};
-
-=head2 GetMoves
-
-   Endpoint*: /match/moves/:id
-   Method:    GET
-
-Get the list of moves for the match, provided as a list (array) of
-URI endpoints.
-
-See L</Match> for details on getting the endpoint.
-
-=cut
-
-get 'match/moves/:id' => sub {
-   return _serializable_match(_rh_get_match(param('id')), 'moves');
 };
 
 =head2 MatchMove
@@ -885,18 +780,15 @@ get '/move/:moveid' => sub {
    return _serializable_move($move);
 };
 
-get '/matches/gathering' => sub {
+get '/matches/:phase' => sub {
    my $model = model();
+   my $phase = param('phase');
    my @matches = map {
       my $match = $model->get_match($_);
-      my $retval = _serializable_match($match, 'participants' );
-      $retval->{game} = {
-         uri => $retval->{game},
-         name => $match->game()->name(),
-      };
+      my $retval = _serializable_match($match, 'participants', ':game');
       $retval;
-   } $model->matches_id_for('gathering');
-   return { phase => 'gathering', matches => \@matches };
+   } $model->matches_id_for($phase);
+   return { phase => $phase, matches => \@matches };
 };
 
 get '/user/matches/:id' => sub {
@@ -922,7 +814,7 @@ get '/user/matches/:id' => sub {
 get '/game/:id' => sub {
    my $id = param('id');
    my $game = model()->get(game => $id);
-   return $game->plain();
+   return _serializable_game($game);
 };
 
 get '/games' => sub {
