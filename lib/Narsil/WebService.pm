@@ -12,7 +12,7 @@ get '/' => sub {
 sub require_package {
    state $local_INC;
    if (! $local_INC) {
-      require lib;
+      require lib; # use lib... together with following line
       lib->import(@{config()->{narsil}{local_INC} // []});
       $local_INC = 1;
    }
@@ -25,7 +25,7 @@ sub require_package {
 sub model {
    state $model;
    if (!$model) {
-      my $config = config()->{narsil};
+      my $config = config()->{narsil}; # application-specific configs
 
       # get class for model
       my $mclass = $config->{'model'} // 'Narsil::Model::Memory';
@@ -35,7 +35,7 @@ sub model {
       # get data to initialize it, it can be overridden
       my $connector = $config->{connector} // {};
       my $parameters = $connector->{parameters};
-      if (my $pclass = $connector->{class}) {
+      if (defined(my $pclass = $connector->{class})) {
          warning "shaping parameters via class $pclass";
          require_package($pclass);
          $parameters = $pclass->parameters($parameters, $mclass);
@@ -86,7 +86,9 @@ sub _path_id {
 
 sub _uri_id {
    my $request = request();
-   return map { $request->uri_for($_)->as_string() } _path_id(@_);
+   my @retval = map { $request->uri_for($_)->as_string() } _path_id(@_);
+   return @retval if wantarray();
+   return $retval[0];
 }
 
 sub _internal_id {
@@ -249,6 +251,16 @@ specialised requests, it will be present only in a request specific
 for this field.
 
 
+=item B<< movers >>
+
+the list of users allowed to make a move in an array containing URIs
+of user endpoints. This field is present only if the match is accepted.
+
+It is present in a request for the overall match object; in case of
+specialised requests, it will be present only in a request specific
+for this field.
+
+
 =item B<< winners >>
 
 the list of winners in an array containing URIs of user endpoints.
@@ -309,6 +321,10 @@ to participate
 
 for fetching the list of invited users only (see above)
 
+=item movers
+
+for fetching the list of users allowed to make a move (see above)
+
 =item winners
 
 for fetching the list of winner users only (see above)
@@ -331,6 +347,25 @@ for this field.
 
 =back
 
+In addition to the above requested subobjects, there are also the following
+meta-options that can be requested:
+
+
+=over
+
+=item B<< :all >>
+
+This is equivalent to not requesting any particular feature, i.e. leave the
+input arguments list empty. It is provided for completeness and to allow
+specifying other meta-options (e.g. L</:game> below).
+
+=item B<< :game >>
+
+Provide a full dump of the relevant game object instead of the simple game
+URI identifier.
+
+=back
+
 =cut
 
 sub _flagify {
@@ -349,7 +384,7 @@ sub _userlist {
 sub _serializable_match {
    my $match        = shift;
    my %is_requested = _flagify(@_);
-   my $all          = !scalar @_;
+   my $all          = !scalar(@_) || $is_requested{':all'};
 
    # Basic stuff, always present
    my %match = (
@@ -358,6 +393,8 @@ sub _serializable_match {
       phase => $match->phase(),
       creator => $match->creator(),
    );
+
+   $match{game} = $is_requested{':game'} ? _serializable_game($match->game()) : $match->gameid();
 
    $match{configuration} = $match->configuration()
      if $all || $is_requested{configuration};
@@ -389,6 +426,7 @@ sub _serializable_match {
               status
               participants
               invited
+              movers
               winners
               joins
               moves
@@ -558,6 +596,22 @@ sub _serializable_move {
    } ## end if ($move_phase eq 'accepted')
    return \%move;
 } ## end sub _serializable_move
+
+
+=head2 Game
+
+
+=cut
+
+sub _serializable_game {
+   my ($game)          = @_;
+   return { 
+      uri   => _uri_id(game => $game),
+      %{_serializable_game($game)},
+   };
+} ## end sub _serializable_move
+
+
 
 =head1 METHODS
 
