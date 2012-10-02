@@ -601,6 +601,7 @@ post '/match' => sub {
       my $gameuri       = param('game');
       my $gameid        = _internal_id(game => $gameuri);
       my $configuration = param('configuration');
+      warning "creating match with configuration $configuration";
       $match = $model->create_match(
          creator       => $user,
          gameid        => $gameid,
